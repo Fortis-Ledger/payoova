@@ -14,19 +14,22 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 let db: any;
 let pool: any = null;
 
-if (isDevelopment) {
-  // Use SQLite for local development
-  const sqlite = new Database('./dev.db');
-  db = drizzleSQLite(sqlite, { schema: sqliteSchema });
-} else {
-  // Use Neon for production
-  if (!process.env.DATABASE_URL) {
-    throw new Error(
-      "DATABASE_URL must be set. Did you forget to provision a database?",
-    );
+// Temporarily disable database for demo
+if (false) {
+  if (isDevelopment) {
+    // Use SQLite for local development
+    const sqlite = new Database('./dev.db');
+    db = drizzleSQLite(sqlite, { schema: sqliteSchema });
+  } else {
+    // Use Neon for production
+    if (!process.env.DATABASE_URL) {
+      throw new Error(
+        "DATABASE_URL must be set. Did you forget to provision a database?",
+      );
+    }
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    db = drizzle({ client: pool, schema });
   }
-  pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  db = drizzle({ client: pool, schema });
 }
 
 export { db, pool };

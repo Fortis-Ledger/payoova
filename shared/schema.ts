@@ -31,7 +31,7 @@ export const sessions = pgTable(
 
 // User storage table for Replit Auth
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -46,7 +46,7 @@ export const users = pgTable("users", {
 
 // Crypto assets table
 export const cryptoAssets = pgTable("crypto_assets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   symbol: varchar("symbol").notNull(), // BTC, ETH, SOL
   name: varchar("name").notNull(), // Bitcoin, Ethereum, Solana
@@ -59,7 +59,7 @@ export const cryptoAssets = pgTable("crypto_assets", {
 
 // Transactions table
 export const transactions = pgTable("transactions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   type: varchar("type").notNull(), // 'send', 'receive', 'purchase', 'trade'
   asset: varchar("asset").notNull(), // BTC, ETH, USD, etc.
@@ -74,7 +74,7 @@ export const transactions = pgTable("transactions", {
 
 // Linked cards table
 export const linkedCards = pgTable("linked_cards", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   cardType: varchar("card_type").notNull(), // 'visa', 'mastercard'
   lastFourDigits: varchar("last_four_digits").notNull(),
@@ -84,7 +84,7 @@ export const linkedCards = pgTable("linked_cards", {
 
 // Virtual cards table
 export const virtualCards = pgTable("virtual_cards", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   cardNumber: varchar("card_number").notNull(),
   expiryMonth: varchar("expiry_month").notNull(),
@@ -101,7 +101,7 @@ export const virtualCards = pgTable("virtual_cards", {
 
 // Physical card applications table
 export const physicalCardApplications = pgTable("physical_card_applications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   cardType: varchar("card_type").notNull(), // 'standard', 'premium', 'metal'
   shippingAddress: text("shipping_address").notNull(),
@@ -114,7 +114,7 @@ export const physicalCardApplications = pgTable("physical_card_applications", {
 
 // Wallet addresses table for different blockchains
 export const walletAddresses = pgTable("wallet_addresses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   blockchain: varchar("blockchain").notNull(), // 'ethereum', 'bsc', 'polygon', 'bitcoin'
   address: varchar("address").notNull().unique(),
@@ -125,7 +125,7 @@ export const walletAddresses = pgTable("wallet_addresses", {
 
 // Payment requests/invoices table
 export const paymentRequests = pgTable("payment_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   userId: varchar("user_id").notNull().references(() => users.id),
   recipientEmail: varchar("recipient_email"),
   amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
@@ -139,7 +139,7 @@ export const paymentRequests = pgTable("payment_requests", {
 
 // Card transactions table
 export const cardTransactions = pgTable("card_transactions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(""),
   cardId: varchar("card_id").notNull().references(() => virtualCards.id),
   merchantName: varchar("merchant_name").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
@@ -150,55 +150,115 @@ export const cardTransactions = pgTable("card_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Schema exports
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  firstName: true,
-  lastName: true,
-  profileImageUrl: true,
+// Schema exports - Simplified to avoid Drizzle version conflicts
+export const insertUserSchema = z.object({
+  id: z.string().optional(),
+  email: z.string().email().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  profileImageUrl: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
 });
 
-export const insertCryptoAssetSchema = createInsertSchema(cryptoAssets).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertCryptoAssetSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  symbol: z.string(),
+  name: z.string(),
+  balance: z.string(),
+  usdValue: z.string(),
+  priceChange24h: z.string(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
 
-export const insertTransactionSchema = createInsertSchema(transactions).omit({
-  id: true,
-  createdAt: true,
+export const insertTransactionSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  type: z.string(),
+  amount: z.string(),
+  asset: z.string(),
+  status: z.string(),
+  description: z.string().nullable().optional(),
+  usdValue: z.string(),
+  fromAddress: z.string().nullable().optional(),
+  toAddress: z.string().nullable().optional(),
+  createdAt: z.date().optional(),
 });
 
-export const insertLinkedCardSchema = createInsertSchema(linkedCards).omit({
-  id: true,
-  createdAt: true,
+export const insertLinkedCardSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  lastFourDigits: z.string(),
+  cardType: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.date().optional(),
 });
 
-export const insertVirtualCardSchema = createInsertSchema(virtualCards).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertVirtualCardSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  cardNumber: z.string(),
+  expiryMonth: z.string(),
+  expiryYear: z.string(),
+  cvv: z.string(),
+  isActive: z.boolean(),
+  cardholderName: z.string(),
+  nickname: z.string().nullable().optional(),
+  spendingLimit: z.string(),
+  balance: z.string(),
+  status: z.string(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
 
-export const insertPhysicalCardApplicationSchema = createInsertSchema(physicalCardApplications).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertPhysicalCardApplicationSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  cardType: z.string(),
+  status: z.string(),
+  shippingAddress: z.string(),
+  applicationFee: z.string(),
+  trackingNumber: z.string().nullable().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
 
-export const insertWalletAddressSchema = createInsertSchema(walletAddresses).omit({
-  id: true,
-  createdAt: true,
+export const insertWalletAddressSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  address: z.string(),
+  blockchain: z.string(),
+  isActive: z.boolean(),
+  privateKey: z.string().nullable().optional(),
+  createdAt: z.date().optional(),
 });
 
-export const insertPaymentRequestSchema = createInsertSchema(paymentRequests).omit({
-  id: true,
-  createdAt: true,
+export const insertPaymentRequestSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  amount: z.string(),
+  currency: z.string(),
+  description: z.string().nullable().optional(),
+  status: z.string(),
+  paymentLink: z.string().nullable().optional(),
+  recipientEmail: z.string().nullable().optional(),
+  expiresAt: z.date().nullable().optional(),
+  createdAt: z.date().optional(),
 });
 
-export const insertCardTransactionSchema = createInsertSchema(cardTransactions).omit({
-  id: true,
-  createdAt: true,
+export const insertCardTransactionSchema = z.object({
+  id: z.string().optional(),
+  cardId: z.string(),
+  amount: z.string(),
+  currency: z.string(),
+  description: z.string().nullable().optional(),
+  status: z.string(),
+  merchantName: z.string(),
+  category: z.string().nullable().optional(),
+  createdAt: z.date().optional(),
 });
 
 // Type exports

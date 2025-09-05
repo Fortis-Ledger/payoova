@@ -36,9 +36,9 @@ export default function AuthScreen() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 dark">
-      <GlassCard className="p-6 md:p-8 w-full max-w-md mx-auto">
+      <GlassCard className="p-6 md:p-8 w-full max-w-md mx-auto space-y-6">
         {/* Logo and Header */}
-        <div className="text-center mb-6 md:mb-8">
+        <div className="text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-primary to-accent mb-4 icon-3d">
             <Wallet className="w-7 h-7 md:w-8 md:h-8 text-background" />
           </div>
@@ -95,7 +95,7 @@ export default function AuthScreen() {
         </form>
 
         {/* Demo Login */}
-        <div className="text-center">
+        <div>
           <Button
             onClick={handleDemoLogin}
             variant="outline"
@@ -107,7 +107,7 @@ export default function AuthScreen() {
         </div>
 
         {/* Social Login Options */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />

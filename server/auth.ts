@@ -28,7 +28,7 @@ export function createSession(userId: string, email: string): string {
 }
 
 // Get session
-export function getSession(sessionId: string): { userId: string; email: string } | null {
+export function getSession(sessionId: string): { id: string; email: string } | null {
   const session = sessions.get(sessionId);
   
   if (!session) {
@@ -54,7 +54,8 @@ export function deleteSession(sessionId: string): void {
 // Clean up expired sessions
 function cleanupExpiredSessions(): void {
   const now = Date.now();
-  for (const [sessionId, session] of sessions.entries()) {
+  const entries = Array.from(sessions.entries());
+  for (const [sessionId, session] of entries) {
     if (now > session.expires) {
       sessions.delete(sessionId);
     }
