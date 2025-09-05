@@ -29,13 +29,16 @@ export default function ActionButtons() {
         {/* Earn */}
         <Link href="/benefits">
           <button className="flex flex-col items-center space-y-2 md:space-y-3 group relative" data-testid="action-earn">
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center icon-3d group-hover:bg-white/20 transition-all duration-300">
-              <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-accent" />
+            <div className="relative">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center icon-3d group-hover:bg-white/20 transition-all duration-300">
+                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-accent" />
+              </div>
+              {/* New Badge */}
+              <div className="absolute -top-1 -right-1 w-6 h-4 md:w-7 md:h-5 new-badge rounded-full flex items-center justify-center">
+                <span className="text-[10px] md:text-xs font-bold text-white">New</span>
+              </div>
             </div>
             <span className="text-xs md:text-sm font-medium text-foreground">Earn</span>
-            <div className="absolute -top-1 -right-1 w-5 h-3 md:w-6 md:h-4 bg-red-500 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-white">New</span>
-            </div>
           </button>
         </Link>
 
