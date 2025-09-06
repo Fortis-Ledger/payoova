@@ -43,46 +43,38 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private wallets: Map<string, Wallet[]> = new Map();
+  private transactions: Map<string, Transaction[]> = new Map();
+  private balances: Map<string, Balance[]> = new Map();
+
   // User operations - authentication focused
   async getUser(id: string): Promise<User | undefined> {
-    // Mock implementation - will be replaced with database calls
-    return {
-      id,
-      email: "demo@payoova.com",
-      password: null,
-      phone: null,
-      firstName: "Demo",
-      lastName: "User",
-      profileImageUrl: null,
-      emailVerified: true,
-      phoneVerified: false,
-      emailVerificationToken: null,
-      phoneVerificationCode: null,
-      verificationCodeExpiry: null,
-      autoWalletGenerated: false,
-      lastLoginAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    return this.users.get(id);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    // Mock implementation
-    if (email === "demo@payoova.com") {
-      return await this.getUser("demo-user-id");
+    for (const user of this.users.values()) {
+      if (user.email === email) {
+        return user;
+      }
     }
     return undefined;
   }
 
   async getUserByVerificationToken(token: string): Promise<User | undefined> {
-    // Mock implementation
-    return await this.getUser("demo-user-id");
+    for (const user of this.users.values()) {
+      if (user.emailVerificationToken === token) {
+        return user;
+      }
+    }
+    return undefined;
   }
 
   async createUser(userData: UpsertUser): Promise<User> {
-    // Mock implementation
-    return {
-      id: crypto.randomUUID(),
+    const userId = userData.id || crypto.randomUUID();
+    const user: User = {
+      id: userId,
       email: userData.email || null,
       password: userData.password || null,
       phone: userData.phone || null,
@@ -99,16 +91,32 @@ export class DatabaseStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    
+    this.users.set(userId, user);
+    console.log(`✅ Created user in storage: ${user.email} (ID: ${userId})`);
+    return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    // For demo, just create user
-    return await this.createUser(userData);
+    if (userData.id && this.users.has(userData.id)) {
+      // Update existing user
+      const existingUser = this.users.get(userData.id)!;
+      const updatedUser = { ...existingUser, ...userData, updatedAt: new Date() };
+      this.users.set(userData.id, updatedUser);
+      return updatedUser;
+    } else {
+      // Create new user
+      return await this.createUser(userData);
+    }
   }
 
   async updateUserLastLogin(id: string): Promise<void> {
-    // Mock implementation
-    console.log(`Updated last login for user: ${id}`);
+    const user = this.users.get(id);
+    if (user) {
+      user.lastLoginAt = new Date();
+      user.updatedAt = new Date();
+      this.users.set(id, user);
+    }
   }
 
   async updateUserVerification(id: string, updates: {
@@ -120,24 +128,29 @@ export class DatabaseStorage implements IStorage {
     phone?: string;
     autoWalletGenerated?: boolean;
   }): Promise<void> {
-    // Mock implementation
-    console.log(`Updated verification for user ${id}:`, updates);
+    const user = this.users.get(id);
+    if (user) {
+      Object.assign(user, updates, { updatedAt: new Date() });
+      this.users.set(id, user);
+      console.log(`✅ Updated verification for user ${id}:`, updates);
+    }
   }
 
   // Wallet operations - auto-generated wallets
   async getWallets(userId: string): Promise<Wallet[]> {
-    // Mock implementation
-    return [];
+    return this.wallets.get(userId) || [];
   }
 
   async getWallet(id: string): Promise<Wallet | undefined> {
-    // Mock implementation
+    for (const userWallets of this.wallets.values()) {
+      const wallet = userWallets.find(w => w.id === id);
+      if (wallet) return wallet;
+    }
     return undefined;
   }
 
   async createWallet(wallet: InsertWallet): Promise<Wallet> {
-    // Mock implementation
-    return {
+    const newWallet: Wallet = {
       id: crypto.randomUUID(),
       userId: wallet.userId,
       address: wallet.address,
@@ -147,17 +160,22 @@ export class DatabaseStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    
+    const userWallets = this.wallets.get(wallet.userId) || [];
+    userWallets.push(newWallet);
+    this.wallets.set(wallet.userId, userWallets);
+    
+    console.log(`✅ Created ${newWallet.network} wallet for user ${wallet.userId}: ${newWallet.address}`);
+    return newWallet;
   }
 
   // Transaction operations - blockchain transactions
   async getTransactions(userId: string): Promise<Transaction[]> {
-    // Mock implementation
-    return [];
+    return this.transactions.get(userId) || [];
   }
 
   async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
-    // Mock implementation
-    return {
+    const newTransaction: Transaction = {
       id: crypto.randomUUID(),
       userId: transaction.userId,
       walletId: transaction.walletId,
@@ -175,29 +193,62 @@ export class DatabaseStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    
+    const userTransactions = this.transactions.get(transaction.userId) || [];
+    userTransactions.push(newTransaction);
+    this.transactions.set(transaction.userId, userTransactions);
+    
+    console.log(`✅ Created transaction for user ${transaction.userId}: ${newTransaction.id}`);
+    return newTransaction;
   }
 
   async updateTransactionStatus(id: string, status: string, transactionHash?: string): Promise<void> {
-    // Mock implementation
-    console.log(`Updated transaction ${id} status to ${status}`);
+    for (const userTransactions of this.transactions.values()) {
+      const transaction = userTransactions.find(t => t.id === id);
+      if (transaction) {
+        transaction.status = status;
+        if (transactionHash) {
+          transaction.transactionHash = transactionHash;
+        }
+        transaction.updatedAt = new Date();
+        console.log(`✅ Updated transaction ${id} status to ${status}`);
+        return;
+      }
+    }
   }
 
   // Balance operations - crypto asset balances
   async getBalances(walletId: string): Promise<Balance[]> {
-    // Mock implementation
-    return [];
+    return this.balances.get(walletId) || [];
   }
 
   async updateBalance(balance: InsertBalance): Promise<Balance> {
-    // Mock implementation
-    return {
-      id: crypto.randomUUID(),
-      walletId: balance.walletId,
-      currency: balance.currency,
-      balance: balance.balance,
-      network: balance.network,
-      lastUpdated: new Date()
-    };
+    const walletBalances = this.balances.get(balance.walletId) || [];
+    
+    // Find existing balance for this currency
+    const existingBalance = walletBalances.find(b => b.currency === balance.currency && b.network === balance.network);
+    
+    if (existingBalance) {
+      // Update existing balance
+      existingBalance.balance = balance.balance;
+      existingBalance.lastUpdated = new Date();
+      return existingBalance;
+    } else {
+      // Create new balance record
+      const newBalance: Balance = {
+        id: crypto.randomUUID(),
+        walletId: balance.walletId,
+        currency: balance.currency,
+        balance: balance.balance,
+        network: balance.network,
+        lastUpdated: new Date()
+      };
+      
+      walletBalances.push(newBalance);
+      this.balances.set(balance.walletId, walletBalances);
+      
+      return newBalance;
+    }
   }
 }
 
