@@ -157,19 +157,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Firebase-based user endpoint (what frontend expects)
   app.get('/api/auth/me', authenticateFirebaseToken, async (req: any, res) => {
     try {
-      // For Firebase users, we'll create a mock user profile
-      // In a real app, you'd store user data in your database after first Firebase login
-      const user = {
-        id: req.user.uid,
-        email: req.user.email,
-        name: req.user.email?.split('@')[0] || 'User',
-        wallets: {
-          eth: { address: '0x742d35Cc6634C0532925a3b8D2BA5C8E5fC' + req.user.uid.slice(-6) },
-          bnb: { address: '0x742d35Cc6634C0532925a3b8D2BA5C8E5fB' + req.user.uid.slice(-6) }
+      // Check if user exists in our database
+      let user = await storage.getUser(req.user.uid);
+      
+      if (!user) {
+        // Create new user in our database for Firebase users
+        console.log('Creating new user for Firebase UID:', req.user.uid);
+        const newUser = {
+          id: req.user.uid,
+          email: req.user.email,
+          firstName: req.user.email?.split('@')[0] || 'User',
+          emailVerified: true, // Firebase users are already verified
+          autoWalletGenerated: false
+        };
+        
+        user = await storage.createUser(newUser);
+        
+        // Auto-generate wallets for new Firebase users
+        try {
+          await AuthService.autoGenerateWalletsForUser(user.id);
+          console.log('Auto-generated wallets for new Firebase user');
+        } catch (walletError) {
+          console.error('Failed to auto-generate wallets:', walletError);
         }
+      }
+      
+      // Get user's wallets
+      const wallets = await storage.getWallets(user.id);
+      const walletsFormatted = {
+        eth: wallets.find(w => w.network === 'ethereum')?.address || null,
+        polygon: wallets.find(w => w.network === 'polygon')?.address || null,
+        bsc: wallets.find(w => w.network === 'bsc')?.address || null
       };
       
-      res.json(user);
+      const userResponse = {
+        id: user.id,
+        email: user.email,
+        name: user.firstName || user.email?.split('@')[0] || 'User',
+        wallets: walletsFormatted
+      };
+      
+      res.json(userResponse);
     } catch (error) {
       console.error('Get user error:', error);
       res.status(500).json({ message: 'Failed to fetch user' });
@@ -188,6 +216,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get user error:', error);
       res.status(500).json({ message: 'Failed to fetch user' });
+    }
+  });
+
+  // Logout route
+  app.get('/api/logout', (req, res) => {
+    try {
+      // For client-side logout, just return success
+      // The frontend will clear local storage
+      res.json({ message: 'Logout successful' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Logout failed' });
     }
   });
 
@@ -283,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats route (updated to use Firebase auth)
   app.get('/api/dashboard-stats', authenticateFirebaseToken, async (req: any, res) => {
     try {
-      const userId = req.user.userId;
+      const userId = req.user.uid;
       const [wallets, transactions] = await Promise.all([
         storage.getWallets(userId),
         storage.getTransactions(userId)
@@ -312,6 +352,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Dashboard stats error:', error);
       res.status(500).json({ message: 'Failed to fetch dashboard stats' });
+    }
+  });
+  
+  // Additional API routes that the frontend is calling
+  app.get('/api/wallet/portfolio', authenticateFirebaseToken, async (req: any, res) => {
+    try {
+      const userId = req.user.uid;
+      const wallets = await storage.getWallets(userId);
+      
+      // Mock portfolio data
+      const portfolio = {
+        totalValue: 1250.75,
+        change24h: '+5.2%',
+        assets: wallets.map(wallet => ({
+          symbol: wallet.network.toUpperCase(),
+          name: wallet.network.charAt(0).toUpperCase() + wallet.network.slice(1),
+          balance: '0.00',
+          value: '0.00',
+          change: '+0.0%'
+        }))
+      };
+      
+      res.json(portfolio);
+    } catch (error) {
+      console.error('Portfolio error:', error);
+      res.status(500).json({ message: 'Failed to fetch portfolio' });
+    }
+  });
+  
+  app.get('/api/wallet/info', authenticateFirebaseToken, async (req: any, res) => {
+    try {
+      const userId = req.user.uid;
+      const wallets = await storage.getWallets(userId);
+      
+      res.json({
+        wallets: wallets.map(wallet => ({
+          id: wallet.id,
+          address: wallet.address,
+          network: wallet.network,
+          balance: '0.00'
+        }))
+      });
+    } catch (error) {
+      console.error('Wallet info error:', error);
+      res.status(500).json({ message: 'Failed to fetch wallet info' });
+    }
+  });
+  
+  app.get('/api/transactions/history', authenticateFirebaseToken, async (req: any, res) => {
+    try {
+      const userId = req.user.uid;
+      const transactions = await storage.getTransactions(userId);
+      
+      res.json({
+        transactions: transactions.map(tx => ({
+          id: tx.id,
+          type: tx.type,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          timestamp: tx.createdAt,
+          fromAddress: tx.fromAddress,
+          toAddress: tx.toAddress
+        }))
+      });
+    } catch (error) {
+      console.error('Transaction history error:', error);
+      res.status(500).json({ message: 'Failed to fetch transaction history' });
+    }
+  });
+  
+  app.get('/api/transactions/stats', authenticateFirebaseToken, async (req: any, res) => {
+    try {
+      const userId = req.user.uid;
+      const transactions = await storage.getTransactions(userId);
+      
+      res.json({
+        total: transactions.length,
+        pending: transactions.filter(tx => tx.status === 'pending').length,
+        completed: transactions.filter(tx => tx.status === 'completed').length,
+        failed: transactions.filter(tx => tx.status === 'failed').length
+      });
+    } catch (error) {
+      console.error('Transaction stats error:', error);
+      res.status(500).json({ message: 'Failed to fetch transaction stats' });
     }
   });
 
