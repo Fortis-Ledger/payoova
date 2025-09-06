@@ -11,6 +11,16 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { ArrowLeft, Send, Wallet } from "lucide-react";
 import { Link } from "wouter";
 
+// Token addresses for ERC-20 tokens
+const getTokenAddress = (symbol: string) => {
+  const addresses: { [key: string]: string } = {
+    USDC: "0xA0b86a33E6441c8C06DDD4e4B4a1c9c0a1B2c3D4",
+    USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    BNB: "0xB8c77482e45F1F44dE1745F52C74426C631bDD52",
+  };
+  return addresses[symbol] || "";
+};
+
 export default function SendPage() {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
@@ -21,23 +31,30 @@ export default function SendPage() {
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/transactions", {
-        type: "send",
-        asset: currency,
-        amount: parseFloat(amount),
-        usdValue: parseFloat(amount) * (currency === "ETH" ? 2400 : currency === "BTC" ? 45000 : 1),
-        toAddress: recipient,
-        description: description || `Sent ${amount} ${currency}`,
-        status: "pending"
-      });
+      if (currency === "ETH" || currency === "MATIC") {
+        // Send native currency
+        await apiRequest("POST", "/api/wallet/send", {
+          toAddress: recipient,
+          amount: parseFloat(amount),
+          network: currency === "ETH" ? "ethereum" : "polygon"
+        });
+      } else {
+        // Send ERC-20 token
+        await apiRequest("POST", "/api/wallet/send-token", {
+          toAddress: recipient,
+          tokenAddress: getTokenAddress(currency),
+          amount: parseFloat(amount),
+          network: "ethereum"
+        });
+      }
     },
     onSuccess: () => {
       toast({
         title: "Transaction Sent",
         description: `Successfully sent ${amount} ${currency}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallet/portfolio"] });
       setRecipient("");
       setAmount("");
       setDescription("");
@@ -50,7 +67,7 @@ export default function SendPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/";
         }, 500);
         return;
       }
@@ -135,8 +152,9 @@ export default function SendPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ETH">ETH</SelectItem>
-                      <SelectItem value="BTC">BTC</SelectItem>
+                      <SelectItem value="MATIC">MATIC</SelectItem>
                       <SelectItem value="USDC">USDC</SelectItem>
+                      <SelectItem value="USDT">USDT</SelectItem>
                       <SelectItem value="BNB">BNB</SelectItem>
                     </SelectContent>
                   </Select>

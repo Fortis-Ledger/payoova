@@ -15,9 +15,19 @@ const TransactionIcon = ({ type }: { type: string }) => {
   }
 };
 
+interface Transaction {
+  _id: string;
+  type: string;
+  amount: string;
+  tokenSymbol?: string;
+  toAddress?: string;
+  fromAddress?: string;
+  createdAt: string;
+}
+
 export default function TransactionHistory() {
-  const { data: transactions, isLoading } = useQuery({
-    queryKey: ["/api/transactions"],
+  const { data: transactions, isLoading } = useQuery<{ transactions: Transaction[] }>({
+    queryKey: ["/api/transactions/history"],
   });
 
   if (isLoading) {
@@ -48,7 +58,7 @@ export default function TransactionHistory() {
 
       <GlassCard className="p-6">
         <div className="space-y-4">
-          {!transactions || transactions.length === 0 ? (
+          {!transactions?.transactions || transactions.transactions.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No transactions found.</p>
               <p className="text-sm text-muted-foreground mt-2">
@@ -56,19 +66,19 @@ export default function TransactionHistory() {
               </p>
             </div>
           ) : (
-            transactions.map((transaction: any) => (
+            transactions.transactions.map((transaction: any) => (
               <div 
-                key={transaction.id}
+                key={transaction._id}
                 className="flex items-center justify-between p-4 rounded-xl hover:bg-secondary/30 transition-all duration-300"
-                data-testid={`row-transaction-${transaction.id}`}
+                data-testid={`row-transaction-${transaction._id}`}
               >
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center icon-3d">
                     <TransactionIcon type={transaction.type} />
                   </div>
                   <div>
-                    <p className="font-semibold" data-testid={`text-transaction-description-${transaction.id}`}>
-                      {transaction.description || `${transaction.type} ${transaction.asset}`}
+                    <p className="font-semibold" data-testid={`text-transaction-description-${transaction._id}`}>
+                      {transaction.type} {transaction.tokenSymbol || 'ETH'}
                     </p>
                     <p className="text-muted-foreground text-sm">
                       {transaction.toAddress && `To: ${transaction.toAddress.slice(0, 12)}...`}
@@ -79,11 +89,11 @@ export default function TransactionHistory() {
                 <div className="text-right">
                   <p className={`font-semibold ${
                     transaction.type === 'receive' ? 'text-accent' : 'text-red-400'
-                  }`} data-testid={`text-transaction-amount-${transaction.id}`}>
+                  }`} data-testid={`text-transaction-amount-${transaction._id}`}>
                     {transaction.type === 'receive' ? '+' : '-'}
-                    {parseFloat(transaction.amount).toFixed(6)} {transaction.asset}
+                    {parseFloat(transaction.amount).toFixed(6)} {transaction.tokenSymbol || 'ETH'}
                   </p>
-                  <p className="text-muted-foreground text-sm" data-testid={`text-transaction-date-${transaction.id}`}>
+                  <p className="text-muted-foreground text-sm" data-testid={`text-transaction-date-${transaction._id}`}>
                     {new Date(transaction.createdAt).toLocaleDateString()}
                   </p>
                 </div>

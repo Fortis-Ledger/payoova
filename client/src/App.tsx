@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,20 +17,37 @@ import BenefitsPage from "@/pages/benefits";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, firebaseUser, error } = useAuth();
+
+  // Show loading state only during initial authentication check
+  if (isLoading) {
+    return (
+      <div className="min-h-screen dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Connecting to Payoova...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if API fails but user is authenticated with Firebase
+  if (firebaseUser && error) {
+    console.warn("API connection failed, but Firebase user exists. Showing dashboard anyway.");
+  }
 
   return (
     <div className="min-h-screen dark">
-      {isAuthenticated && !isLoading && (
+      {isAuthenticated && (
         <>
           <DesktopNavigation />
           <TopNavigation />
         </>
       )}
-      
-      <div className={isAuthenticated && !isLoading ? "md:ml-64 pb-20 md:pb-0" : ""}>
+
+      <div className={isAuthenticated ? "md:ml-64 pb-20 md:pb-0" : ""}>
         <Switch>
-          {isLoading || !isAuthenticated ? (
+          {!isAuthenticated ? (
             <Route path="/" component={Landing} />
           ) : (
             <>
@@ -47,12 +65,25 @@ function Router() {
         </Switch>
       </div>
 
-      {isAuthenticated && !isLoading && <MobileNavigation />}
+      {isAuthenticated && <MobileNavigation />}
     </div>
   );
 }
 
 function App() {
+  // Clear any old tokens on app start
+  useEffect(() => {
+    const oldToken = localStorage.getItem("auth0_token");
+    if (oldToken === "demo-token-123") {
+      localStorage.removeItem("auth0_token");
+    }
+    // Also clear any invalid Firebase tokens
+    const firebaseToken = localStorage.getItem("firebase_token");
+    if (!firebaseToken || firebaseToken.length < 10) {
+      localStorage.removeItem("firebase_token");
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

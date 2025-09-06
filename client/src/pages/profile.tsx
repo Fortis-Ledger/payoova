@@ -13,9 +13,10 @@ import { Link } from "wouter";
 
 interface User {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
+  name?: string;
   phoneNumber?: string;
   dateOfBirth?: string;
   address?: string;
@@ -36,20 +37,20 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
 
   const { data: user, isLoading } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/auth/profile"],
   });
 
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("User not found");
-      await apiRequest("PATCH", `/api/users/${user.id}`, formData);
+      await apiRequest("PUT", "/api/auth/profile", formData);
     },
     onSuccess: () => {
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
       setIsEditing(false);
     },
     onError: (error) => {
@@ -60,7 +61,7 @@ export default function ProfilePage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/";
         }, 500);
         return;
       }
@@ -75,8 +76,8 @@ export default function ProfilePage() {
   const handleStartEdit = () => {
     if (!user) return;
     setFormData({
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
+      firstName: user.firstName || user.name?.split(' ')[0] || "",
+      lastName: user.lastName || user.name?.split(' ')[1] || "",
       email: user.email || "",
       phoneNumber: user.phoneNumber || "",
       dateOfBirth: user.dateOfBirth || "",
@@ -147,7 +148,9 @@ export default function ProfilePage() {
                   {user?.firstName?.[0] || 'U'}{user?.lastName?.[0] || 'U'}
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                  <h2 className="text-lg md:text-xl font-bold">{user?.firstName || 'User'} {user?.lastName || 'Name'}</h2>
+                  <h2 className="text-lg md:text-xl font-bold">
+                    {user?.firstName || user?.name?.split(' ')[0] || 'User'} {user?.lastName || user?.name?.split(' ')[1] || 'Name'}
+                  </h2>
                   <p className="text-muted-foreground text-sm">{user?.email || 'user@example.com'}</p>
                   <div className="flex items-center justify-center md:justify-start mt-2">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${

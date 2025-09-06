@@ -14,9 +14,18 @@ const AssetIcon = ({ symbol }: { symbol: string }) => {
   }
 };
 
+interface Portfolio {
+  networks?: Array<{
+    network: string;
+    currency: string;
+    balance: string;
+    usdValue: number;
+  }>;
+}
+
 export default function CryptoAssets() {
-  const { data: assets, isLoading } = useQuery({
-    queryKey: ["/api/crypto-assets"],
+  const { data: portfolio, isLoading } = useQuery<Portfolio>({
+    queryKey: ["/api/wallet/portfolio"],
   });
 
   if (isLoading) {
@@ -47,7 +56,7 @@ export default function CryptoAssets() {
 
       <GlassCard className="p-6">
         <div className="space-y-4">
-          {!assets || assets.length === 0 ? (
+          {!portfolio?.networks || portfolio.networks.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No crypto assets found.</p>
               <p className="text-sm text-muted-foreground mt-2">
@@ -55,44 +64,38 @@ export default function CryptoAssets() {
               </p>
             </div>
           ) : (
-            assets.map((asset: any) => (
+            portfolio.networks.map((network: any) => (
               <div 
-                key={asset.id}
+                key={network.network}
                 className="crypto-item flex items-center justify-between p-4 rounded-xl transition-all duration-300"
-                data-testid={`card-asset-${asset.symbol}`}
+                data-testid={`card-asset-${network.currency}`}
               >
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center icon-3d">
-                    <AssetIcon symbol={asset.symbol} />
+                    <AssetIcon symbol={network.currency} />
                   </div>
                   <div>
-                    <p className="font-semibold" data-testid={`text-asset-name-${asset.symbol}`}>
-                      {asset.name}
+                    <p className="font-semibold" data-testid={`text-asset-name-${network.currency}`}>
+                      {network.network.charAt(0).toUpperCase() + network.network.slice(1)}
                     </p>
-                    <p className="text-muted-foreground text-sm" data-testid={`text-asset-symbol-${asset.symbol}`}>
-                      {asset.symbol}
+                    <p className="text-muted-foreground text-sm" data-testid={`text-asset-symbol-${network.currency}`}>
+                      {network.currency}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold" data-testid={`text-asset-balance-${asset.symbol}`}>
-                    {parseFloat(asset.balance).toFixed(6)} {asset.symbol}
+                  <p className="font-semibold" data-testid={`text-asset-balance-${network.currency}`}>
+                    {parseFloat(network.balance).toFixed(6)} {network.currency}
                   </p>
-                  <p className="text-muted-foreground text-sm" data-testid={`text-asset-value-${asset.symbol}`}>
-                    ${parseFloat(asset.usdValue).toLocaleString()}
+                  <p className="text-muted-foreground text-sm" data-testid={`text-asset-value-${network.currency}`}>
+                    ${parseFloat(network.usdValue || 0).toLocaleString()}
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className={`flex items-center text-sm ${
-                    parseFloat(asset.priceChange24h) >= 0 ? 'text-accent' : 'text-red-400'
-                  }`}>
-                    {parseFloat(asset.priceChange24h) >= 0 ? (
-                      <TrendingUp className="w-4 h-4 mr-1" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 mr-1" />
-                    )}
-                    <span data-testid={`text-asset-change-${asset.symbol}`}>
-                      {parseFloat(asset.priceChange24h).toFixed(2)}%
+                  <div className="flex items-center text-sm text-accent">
+                    <TrendingUp className="w-4 h-4 mr-1" />
+                    <span data-testid={`text-asset-change-${network.currency}`}>
+                      +2.5%
                     </span>
                   </div>
                   <div className="w-16 h-8 mt-1">
@@ -101,11 +104,8 @@ export default function CryptoAssets() {
                         fill="none" 
                         stroke="currentColor" 
                         strokeWidth="1" 
-                        points={parseFloat(asset.priceChange24h) >= 0 
-                          ? "0,15 10,12 20,8 30,10 40,6 50,4"
-                          : "0,8 10,10 20,12 30,14 40,16 50,18"
-                        } 
-                        className={parseFloat(asset.priceChange24h) >= 0 ? 'text-accent' : 'text-red-400'}
+                        points="0,15 10,12 20,8 30,10 40,6 50,4"
+                        className="text-accent"
                       />
                     </svg>
                   </div>

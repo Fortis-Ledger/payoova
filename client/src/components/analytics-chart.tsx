@@ -1,11 +1,81 @@
 import { GlassCard } from "@/components/ui/glass-card";
+import { useQuery } from "@tanstack/react-query";
+
+interface TransactionStats {
+  summary: {
+    totalValue: number;
+    byType: Record<string, { value: number }>;
+  };
+}
 
 export default function AnalyticsChart() {
-  const chartData = [
-    { label: "Crypto Trading", value: 40, color: "var(--neon-blue)" },
-    { label: "Shopping", value: 25, color: "var(--emerald-glow)" },
-    { label: "Food & Dining", value: 35, color: "hsl(280, 100%, 60%)" }
-  ];
+  const { data: stats, isLoading } = useQuery<TransactionStats>({
+    queryKey: ["/api/transactions/stats"],
+  });
+
+  // Calculate spending categories from transaction data
+  const calculateChartData = () => {
+    if (!stats?.summary) {
+      return [
+        { label: "No Data", value: 100, color: "var(--muted)" }
+      ];
+    }
+
+    const { byType, totalValue } = stats.summary;
+
+    // Map transaction types to spending categories
+    const categoryMap: Record<string, string> = {
+      send: "Crypto Trading",
+      purchase: "Shopping",
+      transfer: "Transfers",
+      // Add more mappings as needed
+    };
+
+    const categories = Object.entries(byType).map(([type, data]) => ({
+      label: categoryMap[type] || type.charAt(0).toUpperCase() + type.slice(1),
+      value: totalValue > 0 ? Math.round((data.value / totalValue) * 100) : 0,
+      color: getCategoryColor(type),
+    }));
+
+    // If no categories, show placeholder
+    if (categories.length === 0) {
+      return [
+        { label: "No Transactions", value: 100, color: "var(--muted)" }
+      ];
+    }
+
+    return categories;
+  };
+
+  const getCategoryColor = (type: string) => {
+    const colors: Record<string, string> = {
+      send: "var(--neon-blue)",
+      purchase: "var(--emerald-glow)",
+      transfer: "hsl(280, 100%, 60%)",
+      default: "var(--primary)",
+    };
+    return colors[type] || colors.default;
+  };
+
+  const chartData = calculateChartData();
+  const totalSpending = stats?.summary?.totalValue || 0;
+
+  if (isLoading) {
+    return (
+      <GlassCard className="p-6 chart-container">
+        <h3 className="font-bold text-lg mb-4">Spending Analytics</h3>
+        <div className="space-y-4 animate-pulse">
+          <div className="h-4 bg-secondary/30 rounded"></div>
+          <div className="h-32 bg-secondary/30 rounded"></div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-4 bg-secondary/30 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </GlassCard>
+    );
+  }
 
   return (
     <GlassCard className="p-6 chart-container">
@@ -13,7 +83,9 @@ export default function AnalyticsChart() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">This Month</span>
-          <span className="text-sm font-semibold" data-testid="text-spending-total">$3,247.89</span>
+          <span className="text-sm font-semibold" data-testid="text-spending-total">
+            ${totalSpending.toFixed(2)}
+          </span>
         </div>
         
         {/* Simple Pie Chart Representation */}

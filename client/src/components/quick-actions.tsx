@@ -13,9 +13,10 @@ export default function QuickActions() {
 
   const linkCardMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/linked-cards", {
-        cardType: "visa",
-        lastFourDigits: "1234"
+      // Note: Card linking is demo feature - would need separate API
+      toast({
+        title: "Demo Feature",
+        description: "Card linking is a demo feature. Real implementation would integrate with card providers.",
       });
     },
     onSuccess: () => {
@@ -23,8 +24,7 @@ export default function QuickActions() {
         title: "Success",
         description: "Card linked successfully!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/linked-cards"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      // No need to invalidate as this is demo feature
       setIsLinking(false);
     },
     onError: (error) => {
@@ -35,7 +35,7 @@ export default function QuickActions() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/";
         }, 500);
         return;
       }

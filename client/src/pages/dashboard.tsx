@@ -14,6 +14,7 @@ export default function Dashboard() {
 
   // Redirect to login if not authenticated
   useEffect(() => {
+    // Only redirect if we're sure the user is not authenticated (after loading is complete)
     if (!isLoading && !isAuthenticated) {
       toast({
         title: "Unauthorized",
@@ -21,8 +22,8 @@ export default function Dashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        window.location.href = "/";
+      }, 2000); // Increased timeout to prevent rapid redirects
       return;
     }
   }, [isAuthenticated, isLoading, toast]);

@@ -3,9 +3,19 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { DollarSign, TrendingUp } from "lucide-react";
 import { SiBitcoin } from "react-icons/si";
 
+interface Portfolio {
+  totalValue?: number;
+  networks?: Array<{
+    network: string;
+    currency: string;
+    balance: string;
+    usdValue: number;
+  }>;
+}
+
 export default function BalanceCards() {
-  const { data: dashboardStats, isLoading } = useQuery({
-    queryKey: ["/api/dashboard-stats"],
+  const { data: portfolio, isLoading } = useQuery<Portfolio>({
+    queryKey: ["/api/wallet/portfolio"],
   });
 
   if (isLoading) {
@@ -24,8 +34,8 @@ export default function BalanceCards() {
     );
   }
 
-  const totalBalance = dashboardStats?.totalBalance || 0;
-  const cryptoBalance = dashboardStats?.cryptoBalance || 0;
+  const totalBalance = portfolio?.totalValue || 0;
+  const cryptoBalance = portfolio?.totalValue || 0;
 
   return (
     <div className="space-y-6">

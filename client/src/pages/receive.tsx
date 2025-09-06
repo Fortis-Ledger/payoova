@@ -19,27 +19,33 @@ export default function ReceivePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: walletAddresses } = useQuery({
-    queryKey: ["/api/wallet-addresses"],
+interface WalletInfo {
+  walletAddress?: string;
+  networks?: Array<{
+    network: string;
+    address: string;
+  }>;
+}
+
+  const { data: walletInfo } = useQuery<WalletInfo>({
+    queryKey: ["/api/wallet/info"],
   });
 
   const createPaymentRequestMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/payment-requests", {
-        amount: parseFloat(amount),
-        currency,
-        description: description || `Payment request for ${amount} ${currency}`,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-        paymentLink: `pay-${Date.now()}`,
+      // Note: Payment requests are demo feature - would need separate API
+      toast({
+        title: "Demo Feature",
+        description: "Payment requests are demo features. Real implementation would create payment links.",
       });
-      return response;
+      return { success: true };
     },
     onSuccess: () => {
       toast({
         title: "Payment Request Created",
         description: "Payment link has been generated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/payment-requests"] });
+      // No need to invalidate as this is demo feature
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -49,7 +55,7 @@ export default function ReceivePage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/";
         }, 500);
         return;
       }

@@ -3,6 +3,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animation delay classes */
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
+}
+
 :root {
   --background: hsl(240, 3%, 4%);
   --foreground: hsl(0, 0%, 95%);

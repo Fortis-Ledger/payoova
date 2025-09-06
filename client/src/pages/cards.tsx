@@ -42,12 +42,15 @@ export default function CardsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Note: These are demo features - real card APIs would be implemented separately
   const { data: virtualCards = [], isLoading: loadingVirtualCards } = useQuery<VirtualCard[]>({
-    queryKey: ["/api/virtual-cards"],
+    queryKey: ["/api/cards/virtual"],
+    enabled: false, // Disable for now as these are demo features
   });
 
   const { data: physicalCardApplications = [], isLoading: loadingPhysicalCards } = useQuery<PhysicalCardApplication[]>({
-    queryKey: ["/api/physical-card-applications"],
+    queryKey: ["/api/cards/physical"],
+    enabled: false, // Disable for now as these are demo features
   });
 
   const createVirtualCardMutation = useMutation({
@@ -80,7 +83,7 @@ export default function CardsPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/";
         }, 500);
         return;
       }
@@ -116,7 +119,7 @@ export default function CardsPage() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/";
         }, 500);
         return;
       }
