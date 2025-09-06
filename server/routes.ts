@@ -35,12 +35,12 @@ if (!admin.apps.length) {
   
   try {
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
       projectId: "payoova"
     });
     console.log("Firebase Admin initialized successfully");
-  } catch (error) {
-    console.warn("Firebase Admin initialization failed. Using mock authentication for development:", error.message);
+  } catch (error: any) {
+    console.warn("Firebase Admin initialization failed. Using mock authentication for development:", error?.message || error);
   }
 }
 
@@ -63,8 +63,8 @@ async function authenticateFirebaseToken(req: any, res: any, next: any) {
         uid: decodedToken.uid
       };
       next();
-    } catch (firebaseError) {
-      console.warn("Firebase token verification failed, using mock auth for development:", firebaseError.message);
+    } catch (firebaseError: any) {
+      console.warn("Firebase token verification failed, using mock auth for development:", firebaseError?.message || firebaseError);
       // For development, create a mock user based on token
       req.user = {
         userId: 'mock-user-' + Date.now(),
