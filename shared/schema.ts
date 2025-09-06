@@ -5,16 +5,12 @@ import {
   pgTable,
   timestamp,
   varchar,
-  decimal,
   text,
+  decimal,
   boolean,
-} from "drizzle-orm/pg-core";
-import {
-  sqliteTable,
-  text as sqliteText,
   integer,
-  real,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -29,254 +25,177 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth
+// User storage table - supports both OAuth and password authentication
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(""),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
+  password: varchar("password"), // For email/password authentication
+  phone: varchar("phone"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  phoneNumber: varchar("phone_number"),
-  dateOfBirth: varchar("date_of_birth"),
-  address: text("address"),
-  kycStatus: varchar("kyc_status").default('pending'), // 'pending', 'verified', 'rejected'
+  emailVerified: boolean("email_verified").default(false),
+  phoneVerified: boolean("phone_verified").default(false),
+  emailVerificationToken: varchar("email_verification_token"),
+  phoneVerificationCode: varchar("phone_verification_code"),
+  verificationCodeExpiry: timestamp("verification_code_expiry"),
+  autoWalletGenerated: boolean("auto_wallet_generated").default(false),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Crypto assets table
-export const cryptoAssets = pgTable("crypto_assets", {
-  id: varchar("id").primaryKey().default(""),
+// Wallets table - auto-generated wallets for users
+export const wallets = pgTable("wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  symbol: varchar("symbol").notNull(), // BTC, ETH, SOL
-  name: varchar("name").notNull(), // Bitcoin, Ethereum, Solana
-  balance: decimal("balance", { precision: 18, scale: 8 }).notNull().default('0'),
-  usdValue: decimal("usd_value", { precision: 12, scale: 2 }).notNull().default('0'),
-  priceChange24h: decimal("price_change_24h", { precision: 5, scale: 2 }).notNull().default('0'),
+  address: varchar("address").notNull().unique(),
+  encryptedPrivateKey: text("encrypted_private_key").notNull(),
+  network: varchar("network").notNull().default("ethereum"), // ethereum, polygon, bsc
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Balance snapshots for caching crypto asset balances
+export const balances = pgTable("balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletId: varchar("wallet_id").notNull().references(() => wallets.id),
+  currency: varchar("currency").notNull(), // ETH, MATIC, USDC, etc.
+  balance: decimal("balance", { precision: 36, scale: 18 }).notNull(),
+  network: varchar("network").notNull(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
 // Transactions table
 export const transactions = pgTable("transactions", {
-  id: varchar("id").primaryKey().default(""),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  type: varchar("type").notNull(), // 'send', 'receive', 'purchase', 'trade'
-  asset: varchar("asset").notNull(), // BTC, ETH, USD, etc.
-  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
-  usdValue: decimal("usd_value", { precision: 12, scale: 2 }).notNull(),
-  fromAddress: varchar("from_address"),
-  toAddress: varchar("to_address"),
-  description: text("description"),
-  status: varchar("status").notNull().default('completed'), // 'pending', 'completed', 'failed'
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Linked cards table
-export const linkedCards = pgTable("linked_cards", {
-  id: varchar("id").primaryKey().default(""),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  cardType: varchar("card_type").notNull(), // 'visa', 'mastercard'
-  lastFourDigits: varchar("last_four_digits").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Virtual cards table
-export const virtualCards = pgTable("virtual_cards", {
-  id: varchar("id").primaryKey().default(""),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  cardNumber: varchar("card_number").notNull(),
-  expiryMonth: varchar("expiry_month").notNull(),
-  expiryYear: varchar("expiry_year").notNull(),
-  cvv: varchar("cvv").notNull(),
-  cardholderName: varchar("cardholder_name").notNull(),
-  nickname: varchar("nickname"),
-  balance: decimal("balance", { precision: 12, scale: 2 }).notNull().default('0'),
-  spendingLimit: decimal("spending_limit", { precision: 12, scale: 2 }).notNull().default('1000'),
-  status: varchar("status").notNull().default('active'), // 'active', 'frozen', 'cancelled'
+  walletId: varchar("wallet_id").notNull().references(() => wallets.id),
+  fromAddress: varchar("from_address").notNull(),
+  toAddress: varchar("to_address").notNull(),
+  amount: decimal("amount", { precision: 36, scale: 18 }).notNull(),
+  currency: varchar("currency").notNull(), // ETH, MATIC, USDC, etc.
+  transactionHash: varchar("transaction_hash").unique(),
+  status: varchar("status").notNull().default("pending"), // pending, confirmed, failed
+  gasPrice: decimal("gas_price", { precision: 36, scale: 18 }),
+  gasUsed: integer("gas_used"),
+  blockNumber: integer("block_number"),
+  network: varchar("network").notNull(),
+  type: varchar("type").notNull(), // send, receive
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Physical card applications table
-export const physicalCardApplications = pgTable("physical_card_applications", {
-  id: varchar("id").primaryKey().default(""),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  cardType: varchar("card_type").notNull(), // 'standard', 'premium', 'metal'
-  shippingAddress: text("shipping_address").notNull(),
-  status: varchar("status").notNull().default('pending'), // 'pending', 'approved', 'shipped', 'delivered', 'rejected'
-  applicationFee: decimal("application_fee", { precision: 8, scale: 2 }).notNull().default('0'),
-  trackingNumber: varchar("tracking_number"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  wallets: many(wallets),
+  transactions: many(transactions),
+}));
+
+export const walletsRelations = relations(wallets, ({ one, many }) => ({
+  user: one(users, {
+    fields: [wallets.userId],
+    references: [users.id],
+  }),
+  transactions: many(transactions),
+  balances: many(balances),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+  wallet: one(wallets, {
+    fields: [transactions.walletId],
+    references: [wallets.id],
+  }),
+}));
+
+export const balancesRelations = relations(balances, ({ one }) => ({
+  wallet: one(wallets, {
+    fields: [balances.walletId],
+    references: [wallets.id],
+  }),
+}));
+
+// Authentication and validation schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-// Wallet addresses table for different blockchains
-export const walletAddresses = pgTable("wallet_addresses", {
-  id: varchar("id").primaryKey().default(""),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  blockchain: varchar("blockchain").notNull(), // 'ethereum', 'bsc', 'polygon', 'bitcoin'
-  address: varchar("address").notNull().unique(),
-  privateKey: varchar("private_key"), // Encrypted
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Payment requests/invoices table
-export const paymentRequests = pgTable("payment_requests", {
-  id: varchar("id").primaryKey().default(""),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  recipientEmail: varchar("recipient_email"),
-  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
-  currency: varchar("currency").notNull(), // 'ETH', 'BTC', 'USD'
-  description: text("description"),
-  expiresAt: timestamp("expires_at"),
-  status: varchar("status").notNull().default('pending'), // 'pending', 'paid', 'expired', 'cancelled'
-  paymentLink: varchar("payment_link").unique(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Card transactions table
-export const cardTransactions = pgTable("card_transactions", {
-  id: varchar("id").primaryKey().default(""),
-  cardId: varchar("card_id").notNull().references(() => virtualCards.id),
-  merchantName: varchar("merchant_name").notNull(),
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  currency: varchar("currency").notNull().default('USD'),
-  category: varchar("category"), // 'food', 'shopping', 'transport', etc.
-  status: varchar("status").notNull().default('completed'),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Schema exports - Simplified to avoid Drizzle version conflicts
-export const insertUserSchema = z.object({
-  id: z.string().optional(),
-  email: z.string().email().optional(),
+export const signupSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  profileImageUrl: z.string().nullable().optional(),
-  phoneNumber: z.string().nullable().optional(),
-  dateOfBirth: z.string().nullable().optional(),
-  address: z.string().nullable().optional(),
 });
 
-export const insertCryptoAssetSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  symbol: z.string(),
-  name: z.string(),
-  balance: z.string(),
-  usdValue: z.string(),
-  priceChange24h: z.string(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(1, "Password is required"),
 });
 
-export const insertTransactionSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  type: z.string(),
-  amount: z.string(),
-  asset: z.string(),
-  status: z.string(),
-  description: z.string().nullable().optional(),
-  usdValue: z.string(),
-  fromAddress: z.string().nullable().optional(),
-  toAddress: z.string().nullable().optional(),
-  createdAt: z.date().optional(),
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, "Refresh token is required"),
 });
 
-export const insertLinkedCardSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  lastFourDigits: z.string(),
-  cardType: z.string(),
-  isActive: z.boolean(),
-  createdAt: z.date().optional(),
+export const insertWalletSchema = createInsertSchema(wallets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertVirtualCardSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  cardNumber: z.string(),
-  expiryMonth: z.string(),
-  expiryYear: z.string(),
-  cvv: z.string(),
-  isActive: z.boolean(),
-  cardholderName: z.string(),
-  nickname: z.string().nullable().optional(),
-  spendingLimit: z.string(),
-  balance: z.string(),
-  status: z.string(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+export const insertTransactionSchema = createInsertSchema(transactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertPhysicalCardApplicationSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  cardType: z.string(),
-  status: z.string(),
-  shippingAddress: z.string(),
-  applicationFee: z.string(),
-  trackingNumber: z.string().nullable().optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+export const insertBalanceSchema = createInsertSchema(balances).omit({
+  id: true,
+  lastUpdated: true,
 });
 
-export const insertWalletAddressSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  address: z.string(),
-  blockchain: z.string(),
-  isActive: z.boolean(),
-  privateKey: z.string().nullable().optional(),
-  createdAt: z.date().optional(),
+// Send transaction schema
+export const sendTransactionSchema = z.object({
+  toAddress: z.string().min(1, "Recipient address is required"),
+  amount: z.string().min(1, "Amount is required"),
+  currency: z.string().min(1, "Currency is required"),
+  network: z.string().min(1, "Network is required"),
 });
 
-export const insertPaymentRequestSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string(),
-  amount: z.string(),
-  currency: z.string(),
-  description: z.string().nullable().optional(),
-  status: z.string(),
-  paymentLink: z.string().nullable().optional(),
-  recipientEmail: z.string().nullable().optional(),
-  expiresAt: z.date().nullable().optional(),
-  createdAt: z.date().optional(),
+// Email verification schema
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1, "Verification token is required"),
 });
 
-export const insertCardTransactionSchema = z.object({
-  id: z.string().optional(),
-  cardId: z.string(),
-  amount: z.string(),
-  currency: z.string(),
-  description: z.string().nullable().optional(),
-  status: z.string(),
-  merchantName: z.string(),
-  category: z.string().nullable().optional(),
-  createdAt: z.date().optional(),
+// Phone verification schemas
+export const sendPhoneVerificationSchema = z.object({
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
+});
+
+export const verifyPhoneSchema = z.object({
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
+  code: z.string().length(6, "Verification code must be 6 digits"),
 });
 
 // Type exports
-export type UpsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
-export type CryptoAsset = typeof cryptoAssets.$inferSelect;
-export type InsertCryptoAsset = z.infer<typeof insertCryptoAssetSchema>;
-export type Transaction = typeof transactions.$inferSelect;
+export type SignupRequest = z.infer<typeof signupSchema>;
+export type LoginRequest = z.infer<typeof loginSchema>;
+export type RefreshTokenRequest = z.infer<typeof refreshTokenSchema>;
+export type InsertWallet = z.infer<typeof insertWalletSchema>;
+export type Wallet = typeof wallets.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
-export type LinkedCard = typeof linkedCards.$inferSelect;
-export type InsertLinkedCard = z.infer<typeof insertLinkedCardSchema>;
-export type VirtualCard = typeof virtualCards.$inferSelect;
-export type InsertVirtualCard = z.infer<typeof insertVirtualCardSchema>;
-export type PhysicalCardApplication = typeof physicalCardApplications.$inferSelect;
-export type InsertPhysicalCardApplication = z.infer<typeof insertPhysicalCardApplicationSchema>;
-export type WalletAddress = typeof walletAddresses.$inferSelect;
-export type InsertWalletAddress = z.infer<typeof insertWalletAddressSchema>;
-export type PaymentRequest = typeof paymentRequests.$inferSelect;
-export type InsertPaymentRequest = z.infer<typeof insertPaymentRequestSchema>;
-export type CardTransaction = typeof cardTransactions.$inferSelect;
-export type InsertCardTransaction = z.infer<typeof insertCardTransactionSchema>;
+export type Transaction = typeof transactions.$inferSelect;
+export type InsertBalance = z.infer<typeof insertBalanceSchema>;
+export type Balance = typeof balances.$inferSelect;
+export type SendTransactionRequest = z.infer<typeof sendTransactionSchema>;
+export type VerifyEmailRequest = z.infer<typeof verifyEmailSchema>;
+export type SendPhoneVerificationRequest = z.infer<typeof sendPhoneVerificationSchema>;
+export type VerifyPhoneRequest = z.infer<typeof verifyPhoneSchema>;
