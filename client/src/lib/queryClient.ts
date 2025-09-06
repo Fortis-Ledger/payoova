@@ -7,7 +7,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-const API_BASE_URL = "http://localhost:3002";
+const API_BASE_URL = "";
 
 export async function apiRequest(
   method: string,
